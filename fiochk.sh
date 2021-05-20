@@ -42,7 +42,7 @@ PWD_DEVICE=$(df -P . | sed -n '$s/[[:blank:]].*//p');
 
 if [[ $PWD_DEVICE == *"md"* ]]; then
 		if mdadm -D $PWD_DEVICE | grep -qi "status" ;
-			then printf "${LRV} RAID resync or rebuild in progress. Aborting${NCV}\n";
+			then printf "${LRV} RAID resync or rebuild is in progress. Aborting.${NCV}\n";
 			sleep 5s;
 			exit 1;
 		fi;
@@ -59,24 +59,27 @@ SUMMARY_DEVICE=$(echo $PWD_DEVICE | awk '{print $1}');
 if [[ $PWD_DEVICE == *"nvme"* ]]; then
 	printf "${GCV}Running FIO (NVME device - $DEVICE_MODEL)${NCV}\n";
 
+#sst function (sync, sleep, trim)
+sst () {
+	printf "${GCV}Syncing${NCV}\n";
+	sync;
+	printf "${GCV}Sleeping${NCV}\n";
+	sleep 5s;
+	printf "${GCV}Trimming${NCV}\n";
+	fstrim $PWD;
+	echo;
+}
+
 	#SLC Cache
 	#NVME SEQ
 		for z in ${OPSTYPE[@]:0:2}; do
-			printf "${GCV}Trimming${NCV}\n";
-			fstrim $PWD;
-			printf "${GCV}Syncing${NCV}\n";
-			sync;
-			echo;
+			sst;
 			printf "${GCV}Testing (${LRV}with SLC cache${NCV}) ${GCV}SEQ1MQ8T1 $z${NCV}\n";
 			declare "SEQ1MQ8T1$z=$($FIO_PRE --blocksize=1m --iodepth=8 --size=1G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync);"
 			test_result="SEQ1MQ8T1$z";
 			echo "${!test_result}";
 
-			printf "${GCV}Trimming${NCV}\n";
-			fstrim $PWD;
-			printf "${GCV}Sleeping${NCV}\n";
-			sleep 5s;
-			echo;
+			sst;
 
 			printf "${GCV}Testing (${LRV}with SLC cache${NCV}) ${GCV}SEQ128KQ32T1 $z${NCV}\n";
 			declare "SEQ128KQ32T1$z=$($FIO_PRE --blocksize=128k --iodepth=32 --size=1G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync);"
@@ -100,21 +103,14 @@ if [[ $PWD_DEVICE == *"nvme"* ]]; then
 	#SLC Cache
 	#NVME RND
 		for z in ${OPSTYPE[@]:2:3}; do
-			printf "${GCV}Trimming${NCV}\n";
-			fstrim $PWD;
-			printf "${GCV}Syncing${NCV}\n";
-			sync;
-			echo;
+			sst;
+
 			printf "${GCV}Testing (${LRV}with SLC cache${NCV}) ${GCV}RND4KQ32T16 $z${NCV}\n";
 			declare "RND4KQ32T16$z=$($FIO_PRE --blocksize=4k --iodepth=32 --size=1G --rw=$z --numjobs=16 $FIO_POST ; rm -f testio$FIO_RNDNAME*);"
 			test_result="RND4KQ32T16$z";
 			echo "${!test_result}";
 
-			printf "${GCV}Trimming${NCV}\n";
-			fstrim $PWD;
-			printf "${GCV}Sleeping${NCV}\n";
-			sleep 5s;
-			echo;
+			sst;
 
 			printf "${GCV}Testing (${LRV}with SLC cache${NCV}) ${GCV}RND4KQ1T1 $z${NCV}\n";
 			declare "RND4KQ1T1$z=$($FIO_PRE --blocksize=4k --iodepth=1 --size=1G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*);"
@@ -138,22 +134,14 @@ if [[ $PWD_DEVICE == *"nvme"* ]]; then
 	#NOT SLC Cache
 	#NVME SEQ
 		for z in ${OPSTYPE[@]:0:2}; do
-			printf "${GCV}Trimming${NCV}\n";
-			fstrim $PWD;
-			printf "${GCV}Syncing${NCV}\n";
-			sync;
-			echo;
+			sst;
 
 			printf "${GCV}Testing (${LRV}without SLC cache${NCV}) ${GCV}SEQ1MQ8T1 $z${NCV}\n";
 			declare "SEQ1MQ8T1$z=$($FIO_PRE --blocksize=1m --iodepth=8 --size=11G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync);"
 			test_result="SEQ1MQ8T1$z";
 			echo "${!test_result}";
 
-			printf "${GCV}Trimming${NCV}\n";
-			fstrim $PWD;
-			printf "${GCV}Sleeping${NCV}\n";
-			sleep 5s;
-			echo;
+			sst;
 
 			printf "${GCV}Testing (${LRV}without SLC cache${NCV}) ${GCV}SEQ128KQ32T1 $z${NCV}\n";
 			declare "SEQ128KQ32T1$z=$($FIO_PRE --blocksize=128k --iodepth=32 --size=11G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync);"
@@ -177,21 +165,14 @@ if [[ $PWD_DEVICE == *"nvme"* ]]; then
 	#NOT SLC Cache
 	#NVME RND
 		for z in ${OPSTYPE[@]:2:3}; do
-			printf "${GCV}Trimming${NCV}\n";
-			fstrim $PWD;
-			printf "${GCV}Syncing${NCV}\n";
-			sync;
-			echo;
+			sst;
+
 			printf "${GCV}Testing (${LRV}without SLC cache${NCV}) ${GCV}RND4KQ32T16 $z${NCV}\n";
 			declare "RND4KQ32T16$z=$($FIO_PRE --blocksize=4k --iodepth=32 --size=1G --rw=$z --numjobs=16 $FIO_POST ; rm -f testio$FIO_RNDNAME*);"
 			test_result="RND4KQ32T16$z";
 			echo "${!test_result}";
 
-			printf "${GCV}Trimming${NCV}\n";
-			fstrim $PWD;
-			printf "${GCV}Sleeping${NCV}\n";
-			sleep 5s;
-			echo;
+			sst;
 
 			printf "${GCV}Testing (${LRV}without SLC cache${NCV}) ${GCV}RND4KQ1T1 $z${NCV}\n";
 			declare "RND4KQ1T1$z=$($FIO_PRE --blocksize=4k --iodepth=1 --size=11G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*);"
@@ -211,9 +192,8 @@ if [[ $PWD_DEVICE == *"nvme"* ]]; then
 			echo "SPEED=$SPEED" >> $f2;
 
 		done;
-	printf "${GCV}Trimming${NCV}\n";
-	fstrim $PWD;
-	echo;
+	sst;
+
 	printf "${LRV}Summary for $SUMMARY_DEVICE (NO SLC CACHE NVME - $DEVICE_MODEL) at $PWD${NCV}\n";
 	cat $f2;
 	rm -f $f2;
@@ -227,17 +207,14 @@ else printf "${GCV}Running FIO (${LRV}NOT${GCV} NVME device - $DEVICE_MODEL) ${N
 
  	#NOT_NVME SEQ
 		for z in ${OPSTYPE[@]:0:2}; do
-			printf "${GCV}Syncing${NCV}\n";
-			sync;
-			echo;
+			sst;
+
 			printf "${GCV}Testing SEQ1MQ8T1 $z${NCV}\n";
 			declare "SEQ1MQ8T1$z=$($FIO_PRE --blocksize=1m --iodepth=8 --size=1G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync);"
 			test_result="SEQ1MQ8T1$z";
 			echo "${!test_result}";
 
-			printf "${GCV}Sleeping${NCV}\n";
-			sleep 5s;
-			echo;
+			sst;
 
 			printf "${GCV}Testing SEQ128KQ32T1 $z${NCV}\n";
 			declare "SEQ128KQ32T1$z=$($FIO_PRE --blocksize=128k --iodepth=32 --size=1G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync);"
@@ -260,16 +237,14 @@ else printf "${GCV}Running FIO (${LRV}NOT${GCV} NVME device - $DEVICE_MODEL) ${N
 		done;
 	#NOT_NVME RND
 		for z in ${OPSTYPE[@]:2:3}; do
-			printf "${GCV}Syncing${NCV}\n";
-			sync;
-			echo;
+			sst;
+
 			printf "${GCV}Testing RND4KQ32T1 $z${NCV}\n";
 			declare "RND4KQ32T1$z=$($FIO_PRE --blocksize=4k --iodepth=32 --size=500M --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*);"
 			test_result="RND4KQ32T1$z";
 			echo "${!test_result}";
 
-			printf "${GCV}Sleeping${NCV}\n";
-			sleep 5s;
+			sst;
 
 			printf "${GCV}Testing RND4KQ1T1 $z${NCV}\n";
 			declare "RND4KQ1T1$z=$($FIO_PRE --blocksize=4k --iodepth=1 --size=500M --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*);"
@@ -289,9 +264,9 @@ else printf "${GCV}Running FIO (${LRV}NOT${GCV} NVME device - $DEVICE_MODEL) ${N
 			echo "SPEED=$SPEED" >> $f;
 
 		done;
-	printf "${GCV}Trimming${NCV}\n";
-	fstrim $PWD;
-	echo;
+
+	sst;
+
 	printf "${LRV}Summary for $SUMMARY_DEVICE (NOT NVME - $DEVICE_MODEL) at $PWD${NCV}\n";
 	cat $f;
 	rm -f $f;
