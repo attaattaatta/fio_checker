@@ -30,6 +30,12 @@ sst() {
         echo;
 }
 
+#parse results function
+parse_fio_results() {
+	IOPS=$(echo ${!test_result} | grep -o "IOPS=*[[:alnum:]|.]*");
+	SPEED=$(echo "${!test_result}" | grep -E "WRITE|READ" | grep -Po "(?<=\().*(?=\))" | sed "s@).*@@gi");
+}
+
 #check fio;
 fio_exist=$(if ! fio -v ; then printf "${GCV}Installing FIO${NCV}\n" && apt -y install fio || yum -y install fio; fi > /dev/null 2>&1);
 
@@ -80,22 +86,19 @@ if [[ $PWD_DEVICE == *"nvme"* ]]; then
                         test_result="SEQ1MQ8T1$z";
                         echo "${!test_result}";
 
-                        sst;
+			printf "${GCV}----------\n Sequential by 1MB block queue - 8 thread(s) - 1 operation - $z:\n${NCV}" >> $f1;
+			parse_fio_results;
+                        echo $IOPS >> $f1;
+                        echo "SPEED=$SPEED" >> $f1;
 
+                        sst;
                         printf "${GCV}Testing (${LRV}with SLC cache${NCV}) ${GCV}SEQ128KQ32T1 $z${NCV}\n";
                         declare "SEQ128KQ32T1$z=$($FIO_PRE --blocksize=128k --iodepth=32 --size=1G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync);"
                         test_result="SEQ128KQ32T1$z";
                         echo "${!test_result}";
 
-                        printf "${GCV}----------\n Sequential by 1MB block queue - 8 thread(s) - 1 operation - $z:\n${NCV}" >> $f1;
-                        IOPS=$(echo ${!test_result} | grep -o "IOPS=*[[:alnum:]|.]*");
-                        SPEED=$(echo "${!test_result}" | grep -E "WRITE|READ" | grep -Po "(?<=\().*(?=\))" | sed "s@).*@@gi");
-                        echo $IOPS >> $f1;
-                        echo "SPEED=$SPEED" >> $f1;
-
                         printf "${GCV}----------\n Sequential by 128KB block queue - 32 thread(s) - 1 operation - $z:\n${NCV}" >> $f1;
-                        IOPS=$(echo ${!test_result} | grep -o "IOPS=*[[:alnum:]|.]*");
-                        SPEED=$(echo "${!test_result}" | grep -E "WRITE|READ" | grep -Po "(?<=\().*(?=\))" | sed "s@).*@@gi");
+			parse_fio_results;
                         echo $IOPS >> $f1;
                         echo "SPEED=$SPEED" >> $f1;
 
@@ -105,28 +108,24 @@ if [[ $PWD_DEVICE == *"nvme"* ]]; then
                 #NVME RND
                 for z in ${OPSTYPE[@]:2:3}; do
                         sst;
-
                         printf "${GCV}Testing (${LRV}with SLC cache${NCV}) ${GCV}RND4KQ32T16 $z${NCV}\n";
                         declare "RND4KQ32T16$z=$($FIO_PRE --blocksize=4k --iodepth=32 --size=1G --rw=$z --numjobs=16 $FIO_POST ; rm -f testio$FIO_RNDNAME*);"
                         test_result="RND4KQ32T16$z";
                         echo "${!test_result}";
 
-                        sst;
+                        printf "${GCV}----------\n Random by 4KB block queue - 32 thread(s) - 16 operation - $z:\n${NCV}" >> $f1;
+			parse_fio_results;
+                        echo $IOPS >> $f1;
+                        echo "SPEED=$SPEED" >> $f1;
 
+                        sst;
                         printf "${GCV}Testing (${LRV}with SLC cache${NCV}) ${GCV}RND4KQ1T1 $z${NCV}\n";
                         declare "RND4KQ1T1$z=$($FIO_PRE --blocksize=4k --iodepth=1 --size=1G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*);"
                         test_result="RND4KQ1T1$z";
                         echo "${!test_result}";
 
-                        printf "${GCV}----------\n Random by 4KB block queue - 32 thread(s) - 16 operation - $z:\n${NCV}" >> $f1;
-                        IOPS=$(echo ${!test_result} | grep -o "IOPS=*[[:alnum:]|.]*");
-                        SPEED=$(echo "${!test_result}" | grep -E "WRITE|READ" | grep -Po "(?<=\().*(?=\))" | sed "s@).*@@gi");
-                        echo $IOPS >> $f1;
-                        echo "SPEED=$SPEED" >> $f1;
-
                         printf "${GCV}----------\n  Random by 4KB block queue - 1 thread(s) - 1 operation - $z:\n${NCV}" >> $f1;
-                        IOPS=$(echo ${!test_result} | grep -o "IOPS=*[[:alnum:]|.]*");
-                        SPEED=$(echo "${!test_result}" | grep -E "WRITE|READ" | grep -Po "(?<=\().*(?=\))" | sed "s@).*@@gi");
+			parse_fio_results;
                         echo $IOPS >> $f1;
                         echo "SPEED=$SPEED" >> $f1;
 
@@ -136,28 +135,24 @@ if [[ $PWD_DEVICE == *"nvme"* ]]; then
                 #NVME SEQ
                 for z in ${OPSTYPE[@]:0:2}; do
                         sst;
-
                         printf "${GCV}Testing (${LRV}without SLC cache${NCV}) ${GCV}SEQ1MQ8T1 $z${NCV}\n";
                         declare "SEQ1MQ8T1$z=$($FIO_PRE --blocksize=1m --iodepth=8 --size=11G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync);"
                         test_result="SEQ1MQ8T1$z";
                         echo "${!test_result}";
 
-                        sst;
+                        printf "${GCV}----------\n Sequential by 1MB block queue - 8 thread(s) - 1 operation - $z:\n${NCV}" >> $f2;
+			parse_fio_results;
+                        echo $IOPS >> $f2;
+                        echo "SPEED=$SPEED" >> $f2;
 
+                        sst;
                         printf "${GCV}Testing (${LRV}without SLC cache${NCV}) ${GCV}SEQ128KQ32T1 $z${NCV}\n";
                         declare "SEQ128KQ32T1$z=$($FIO_PRE --blocksize=128k --iodepth=32 --size=11G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync);"
                         test_result="SEQ128KQ32T1$z";
                         echo "${!test_result}";
 
-                        printf "${GCV}----------\n Sequential by 1MB block queue - 8 thread(s) - 1 operation - $z:\n${NCV}" >> $f2;
-                        IOPS=$(echo ${!test_result} | grep -o "IOPS=*[[:alnum:]|.]*");
-                        SPEED=$(echo "${!test_result}" | grep -E "WRITE|READ" | grep -Po "(?<=\().*(?=\))" | sed "s@).*@@gi");
-                        echo $IOPS >> $f2;
-                        echo "SPEED=$SPEED" >> $f2;
-
                         printf "${GCV}----------\n Sequential by 128KB block queue - 32 thread(s) - 1 operation - $z:\n${NCV}" >> $f2;
-                        IOPS=$(echo ${!test_result} | grep -o "IOPS=*[[:alnum:]|.]*");
-                        SPEED=$(echo "${!test_result}" | grep -E "WRITE|READ" | grep -Po "(?<=\().*(?=\))" | sed "s@).*@@gi");
+			parse_fio_results;
                         echo $IOPS >> $f2;
                         echo "SPEED=$SPEED" >> $f2;
 
@@ -167,28 +162,24 @@ if [[ $PWD_DEVICE == *"nvme"* ]]; then
                 #NVME RND
                 for z in ${OPSTYPE[@]:2:3}; do
                         sst;
-
                         printf "${GCV}Testing (${LRV}without SLC cache${NCV}) ${GCV}RND4KQ32T16 $z${NCV}\n";
                         declare "RND4KQ32T16$z=$($FIO_PRE --blocksize=4k --iodepth=32 --size=1G --rw=$z --numjobs=16 $FIO_POST ; rm -f testio$FIO_RNDNAME*);"
                         test_result="RND4KQ32T16$z";
                         echo "${!test_result}";
 
-                        sst;
+                        printf "${GCV}----------\n Random by 4KB block queue - 32 thread(s) - 16 operation - $z:\n${NCV}" >> $f2;
+			parse_fio_results;
+                        echo $IOPS >> $f2;
+                        echo "SPEED=$SPEED" >> $f2;
 
+                        sst;
                         printf "${GCV}Testing (${LRV}without SLC cache${NCV}) ${GCV}RND4KQ1T1 $z${NCV}\n";
                         declare "RND4KQ1T1$z=$($FIO_PRE --blocksize=4k --iodepth=1 --size=11G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*);"
                         test_result="RND4KQ1T1$z";
                         echo "${!test_result}";
 
-                        printf "${GCV}----------\n Random by 4KB block queue - 32 thread(s) - 16 operation - $z:\n${NCV}" >> $f2;
-                        IOPS=$(echo ${!test_result} | grep -o "IOPS=*[[:alnum:]|.]*");
-                        SPEED=$(echo "${!test_result}" | grep -E "WRITE|READ" | grep -Po "(?<=\().*(?=\))" | sed "s@).*@@gi");
-                        echo $IOPS >> $f2;
-                        echo "SPEED=$SPEED" >> $f2;
-
                         printf "${GCV}----------\n  Random by 4KB block queue - 1 thread(s) - 1 operation - $z:\n${NCV}" >> $f2;
-                        IOPS=$(echo ${!test_result} | grep -o "IOPS=*[[:alnum:]|.]*");
-                        SPEED=$(echo "${!test_result}" | grep -E "WRITE|READ" | grep -Po "(?<=\().*(?=\))" | sed "s@).*@@gi");
+			parse_fio_results;
                         echo $IOPS >> $f2;
                         echo "SPEED=$SPEED" >> $f2;
 
@@ -197,11 +188,10 @@ if [[ $PWD_DEVICE == *"nvme"* ]]; then
 
         printf "${LRV}Summary for $SUMMARY_DEVICE (NO SLC CACHE NVME - $DEVICE_MODEL) at $PWD${NCV}\n";
         cat $f2;
-        rm -f $f2;
         echo;
         printf "${LRV}Summary for $SUMMARY_DEVICE (SLC CACHE NVME - $DEVICE_MODEL) at $PWD${NCV}\n";
         cat $f1;
-        rm -f $f1;
+        rm -f $f $f1 $f2;
         echo;
 
 else printf "${GCV}Running FIO (${LRV}NOT${GCV} NVME device - $DEVICE_MODEL) ${NCV}\n";
@@ -209,29 +199,25 @@ else printf "${GCV}Running FIO (${LRV}NOT${GCV} NVME device - $DEVICE_MODEL) ${N
                 #NOT_NVME SEQ
                 for z in ${OPSTYPE[@]:0:2}; do
                         sst;
-
                         printf "${GCV}Testing SEQ1MQ8T1 $z${NCV}\n";
                         declare "SEQ1MQ8T1$z=$($FIO_PRE --blocksize=1m --iodepth=8 --size=1G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync);"
                         test_result="SEQ1MQ8T1$z";
                         echo "${!test_result}";
 
-                        sst;
+                        printf "${GCV}----------\n Sequential by 1MB block queue - 8 thread(s) - 1 operation - $z:\n${NCV}" >> $f;
+			parse_fio_results;
+                        echo $IOPS >> $f;
+                        echo "SPEED=$SPEED" >> $f;
 
+                        sst;
                         printf "${GCV}Testing SEQ128KQ32T1 $z${NCV}\n";
                         declare "SEQ128KQ32T1$z=$($FIO_PRE --blocksize=128k --iodepth=32 --size=1G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync);"
                         test_result="SEQ128KQ32T1$z";
                         echo "${!test_result}";
                         echo;
 
-                        printf "${GCV}----------\n Sequential by 1MB block queue - 8 thread(s) - 1 operation - $z:\n${NCV}" >> $f;
-                        IOPS=$(echo ${!test_result} | grep -o "IOPS=*[[:alnum:]|.]*");
-                        SPEED=$(echo "${!test_result}" | grep -E "WRITE|READ" | grep -Po "(?<=\().*(?=\))" | sed "s@).*@@gi");
-                        echo $IOPS >> $f;
-                        echo "SPEED=$SPEED" >> $f;
-
                         printf "${GCV}----------\n Sequential by 128KB block queue - 32 thread(s) - 1 operation - $z:\n${NCV}" >> $f;
-                        IOPS=$(echo ${!test_result} | grep -o "IOPS=*[[:alnum:]|.]*");
-                        SPEED=$(echo "${!test_result}" | grep -E "WRITE|READ" | grep -Po "(?<=\().*(?=\))" | sed "s@).*@@gi");
+			parse_fio_results;
                         echo $IOPS >> $f;
                         echo "SPEED=$SPEED" >> $f;
 
@@ -240,39 +226,34 @@ else printf "${GCV}Running FIO (${LRV}NOT${GCV} NVME device - $DEVICE_MODEL) ${N
                 #NOT_NVME RND
                 for z in ${OPSTYPE[@]:2:3}; do
                         sst;
-
                         printf "${GCV}Testing RND4KQ32T1 $z${NCV}\n";
                         declare "RND4KQ32T1$z=$($FIO_PRE --blocksize=4k --iodepth=32 --size=500M --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*);"
                         test_result="RND4KQ32T1$z";
                         echo "${!test_result}";
 
-                        sst;
+                        printf "${GCV}----------\n Random by 4KB block queue - 32 thread(s) - 1 operation - $z:\n${NCV}" >> $f;
+			parse_fio_results;
+                        echo $IOPS >> $f;
+                        echo "SPEED=$SPEED" >> $f;
 
+                        sst;
                         printf "${GCV}Testing RND4KQ1T1 $z${NCV}\n";
                         declare "RND4KQ1T1$z=$($FIO_PRE --blocksize=4k --iodepth=1 --size=500M --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*);"
                         test_result="RND4KQ1T1$z";
                         echo "${!test_result}";
 
-                        printf "${GCV}----------\n Random by 4KB block queue - 32 thread(s) - 1 operation - $z:\n${NCV}" >> $f;
-                        IOPS=$(echo ${!test_result} | grep -o "IOPS=*[[:alnum:]|.]*");
-                        SPEED=$(echo "${!test_result}" | grep -E "WRITE|READ" | grep -Po "(?<=\().*(?=\))" | sed "s@).*@@gi");
-                        echo $IOPS >> $f;
-                        echo "SPEED=$SPEED" >> $f;
-
                         printf "${GCV}----------\n  Random by 4KB block queue - 1 thread(s) - 1 operation - $z:\n${NCV}" >> $f;
-                        IOPS=$(echo ${!test_result} | grep -o "IOPS=*[[:alnum:]|.]*");
-                        SPEED=$(echo "${!test_result}" | grep -E "WRITE|READ" | grep -Po "(?<=\().*(?=\))" | sed "s@).*@@gi");
+			parse_fio_results;
                         echo $IOPS >> $f;
                         echo "SPEED=$SPEED" >> $f;
 
                 done;
 
         sst;
-
         printf "${LRV}Summary for $SUMMARY_DEVICE (NOT NVME - $DEVICE_MODEL) at $PWD${NCV}\n";
         cat $f;
         rm -f $f $f1 $f2;
         echo;
 fi;
 
-unset fio_exist GCV LRV NCV FIO_RNDNAME FIO_PRE FIO_POST OPSTYPE f PWD_DEVICE DEVICE_MODEL IOPS SPEED SUMMARY_DEVICE test_result;
+unset fio_exist GCV LRV NCV FIO_RNDNAME FIO_PRE FIO_POST OPSTYPE f f1 f2 PWD_DEVICE DEVICE_MODEL IOPS SPEED SUMMARY_DEVICE test_result;
