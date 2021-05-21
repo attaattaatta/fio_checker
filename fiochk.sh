@@ -60,7 +60,7 @@ if [[ $PWD_DEVICE == *"md"* ]]; then
 PWD_DEVICE=$(mdadm -vQD $PWD_DEVICE | grep -o '/dev/.*'  | sed 's@:@@gi');
 fi;
 
-DEVICE_MODEL=$(fdisk -l $(echo $PWD_DEVICE | sed -E 's@p?.$@@') | sed -n "s@Disk model: @@p");
+DEVICE_MODEL=$(fdisk -l $(echo $PWD_DEVICE | sed -E 's@p?.$@@') | sed -n 's@Disk model: @@p' |  sed 's@[ \t]*$@@');
 
 if [ -z "${DEVICE_MODEL}" ]; then
         DEVICE_MODEL="Unknown";
@@ -271,7 +271,7 @@ else printf "${GCV}Running FIO (${LRV}NOT${GCV} NVME device - $DEVICE_MODEL) ${N
 
         printf "${LRV}Summary for $SUMMARY_DEVICE (NOT NVME - $DEVICE_MODEL) at $PWD${NCV}\n";
         cat $f;
-        rm -f $f;
+        rm -f $f $f1 $f2;
         echo;
 fi;
 
