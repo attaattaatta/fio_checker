@@ -66,7 +66,7 @@ if [[ $PWD_DEVICE == *"md"* ]]; then
 PWD_DEVICE=$(mdadm -vQD $PWD_DEVICE | grep -o '/dev/.*'  | sed 's@:@@gi');
 fi;
 
-DEVICE_MODEL=$(fdisk -l $(echo $PWD_DEVICE | sed -E 's@p?.$@@') | sed -n 's@Disk model: @@p' |  sed 's@[ \t]*$@@');
+DEVICE_MODEL=$(fdisk -l $(echo $PWD_DEVICE | sed 's@p[[:digit:]]@@g') | sed -n 's@Disk model: @@p' |  sed 's@[ \t]*$@@' | tr '\n' ',' | sed 's@,$@@g');
 
 if [ -z "${DEVICE_MODEL}" ]; then
         DEVICE_MODEL="Unknown";
