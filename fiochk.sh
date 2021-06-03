@@ -163,7 +163,7 @@ if [[ $PWD_DEVICE == *"nvme"* ]]; then
                 for z in ${OPSTYPE[@]:2:3}; do
                         sst;
                         printf "${GCV}Testing (${LRV}without SLC cache${NCV}) ${GCV}RND4KQ32T16 $z${NCV}\n";
-                        declare "RND4KQ32T16$z=$($FIO_PRE --blocksize=4k --iodepth=32 --size=1G --rw=$z --numjobs=16 $FIO_POST ; rm -f testio$FIO_RNDNAME*);"
+                        declare "RND4KQ32T16$z=$($FIO_PRE --blocksize=4k --iodepth=32 --size=3G --rw=$z --numjobs=16 $FIO_POST ; rm -f testio$FIO_RNDNAME*);"
                         test_result="RND4KQ32T16$z";
                         echo "${!test_result}";
 
