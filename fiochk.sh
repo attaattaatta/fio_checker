@@ -12,9 +12,9 @@ NCV="\033[0m";
 
 #check free space in megabytes
 current_free=$(df -Phm --sync . | tail -1 | awk '{print $4}' | grep -o "[[:digit:]|.]*");
-space_need=20480
+space_need=52224
 if [ "$current_free" -le "$space_need" ]; then
-        printf "${LRV}Free space for $PWD less than 20GB${NCV}";
+        printf "${LRV}Free space for $PWD less than 51GB${NCV}";
         sleep 2s;
         exit 1;
 fi;
@@ -136,7 +136,7 @@ if [[ $PWD_DEVICE == *"nvme"* ]]; then
                 for z in ${OPSTYPE[@]:0:2}; do
                         sst;
                         printf "${GCV}Testing (${LRV}without SLC cache${NCV}) ${GCV}SEQ1MQ8T1 $z${NCV}\n";
-                        declare "SEQ1MQ8T1$z=$($FIO_PRE --blocksize=1m --iodepth=8 --size=11G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync);"
+                        declare "SEQ1MQ8T1$z=$($FIO_PRE --blocksize=1m --iodepth=8 --size=50G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync);"
                         test_result="SEQ1MQ8T1$z";
                         echo "${!test_result}";
 
@@ -147,7 +147,7 @@ if [[ $PWD_DEVICE == *"nvme"* ]]; then
 
                         sst;
                         printf "${GCV}Testing (${LRV}without SLC cache${NCV}) ${GCV}SEQ128KQ32T1 $z${NCV}\n";
-                        declare "SEQ128KQ32T1$z=$($FIO_PRE --blocksize=128k --iodepth=32 --size=11G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync);"
+                        declare "SEQ128KQ32T1$z=$($FIO_PRE --blocksize=128k --iodepth=32 --size=50G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync);"
                         test_result="SEQ128KQ32T1$z";
                         echo "${!test_result}";
 
@@ -174,7 +174,7 @@ if [[ $PWD_DEVICE == *"nvme"* ]]; then
 
                         sst;
                         printf "${GCV}Testing (${LRV}without SLC cache${NCV}) ${GCV}RND4KQ1T1 $z${NCV}\n";
-                        declare "RND4KQ1T1$z=$($FIO_PRE --blocksize=4k --iodepth=1 --size=11G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*);"
+                        declare "RND4KQ1T1$z=$($FIO_PRE --blocksize=4k --iodepth=1 --size=50G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*);"
                         test_result="RND4KQ1T1$z";
                         echo "${!test_result}";
 
