@@ -200,7 +200,7 @@ else printf "${GCV}Running FIO (${LRV}NOT${GCV} NVME device - $DEVICE_MODEL) ${N
                 for z in ${OPSTYPE[@]:0:2}; do
                         sst;
                         printf "${GCV}Testing SEQ1MQ8T1 $z${NCV}\n";
-                        declare "SEQ1MQ8T1$z=$($FIO_PRE --blocksize=1m --iodepth=8 --size=1G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync);"
+                        declare "SEQ1MQ8T1$z=$($FIO_PRE --blocksize=1m --iodepth=8 --size=10G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync);"
                         test_result="SEQ1MQ8T1$z";
                         echo "${!test_result}";
 
@@ -211,7 +211,7 @@ else printf "${GCV}Running FIO (${LRV}NOT${GCV} NVME device - $DEVICE_MODEL) ${N
 
                         sst;
                         printf "${GCV}Testing SEQ128KQ32T1 $z${NCV}\n";
-                        declare "SEQ128KQ32T1$z=$($FIO_PRE --blocksize=128k --iodepth=32 --size=1G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync);"
+                        declare "SEQ128KQ32T1$z=$($FIO_PRE --blocksize=128k --iodepth=32 --size=10G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync);"
                         test_result="SEQ128KQ32T1$z";
                         echo "${!test_result}";
                         echo;
@@ -227,7 +227,7 @@ else printf "${GCV}Running FIO (${LRV}NOT${GCV} NVME device - $DEVICE_MODEL) ${N
                 for z in ${OPSTYPE[@]:2:3}; do
                         sst;
                         printf "${GCV}Testing RND4KQ32T1 $z${NCV}\n";
-                        declare "RND4KQ32T1$z=$($FIO_PRE --blocksize=4k --iodepth=32 --size=500M --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*);"
+                        declare "RND4KQ32T1$z=$($FIO_PRE --blocksize=4k --iodepth=32 --size=10G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*);"
                         test_result="RND4KQ32T1$z";
                         echo "${!test_result}";
 
@@ -238,7 +238,7 @@ else printf "${GCV}Running FIO (${LRV}NOT${GCV} NVME device - $DEVICE_MODEL) ${N
 
                         sst;
                         printf "${GCV}Testing RND4KQ1T1 $z${NCV}\n";
-                        declare "RND4KQ1T1$z=$($FIO_PRE --blocksize=4k --iodepth=1 --size=500M --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*);"
+                        declare "RND4KQ1T1$z=$($FIO_PRE --blocksize=4k --iodepth=1 --size=10G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*);"
                         test_result="RND4KQ1T1$z";
                         echo "${!test_result}";
 
