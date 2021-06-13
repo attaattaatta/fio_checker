@@ -26,7 +26,7 @@ sst() {
         printf "${GCV}Sleeping${NCV}\n";
         sleep 5s;
         printf "${GCV}Trimming${NCV}\n";
-        fstrim $PWD;
+        fstrim $PWD 2> /dev/null || true;
         echo;
 }
 
