@@ -2,8 +2,6 @@
 
 clear;
 
-set -e;
-
 export PATH=$PATH:/usr/sbin:/usr/sbin:/usr/local/sbin;
 
 GCV="\033[0;92m";
