@@ -13,7 +13,7 @@ YCV="\033[01;33m"
 NCV="\033[0m"
 
 # Show script version
-self_current_version="1.0.2"
+self_current_version="1.0.3"
 printf "\n${YCV}Hello${NCV}, my version is ${YCV}$self_current_version\n\n${NCV}"
 
 # Check if the script is run as root
@@ -222,31 +222,32 @@ if [[ $PWD_DEVICE == *"nvme"* ]]; then
         done
 
         # NOT SLC Cache NVME RND
-        for z in ${OPSTYPE[@]:2:3}; do
-            sst
-            printf "${GCV}Testing (${LRV}without SLC cache${NCV}) ${GCV}RND4KQ32T16 $z${NCV}\n" | tee -a $PWD/${RESULTS_FILENAME}
-            declare "RND4KQ32T16$z=$($FIO_PRE --blocksize=4k --iodepth=32 --size=50G --rw=$z --numjobs=16 $FIO_POST ; rm -f testio$FIO_RNDNAME*)"
-            test_result="RND4KQ32T16$z"
-            echo "${!test_result}" | tee -a $PWD/${RESULTS_FILENAME}
+	# disabled, running too slow
+        #for z in ${OPSTYPE[@]:2:3}; do
+        #    sst
+        #    printf "${GCV}Testing (${LRV}without SLC cache${NCV}) ${GCV}RND4KQ32T16 $z${NCV}\n" | tee -a $PWD/${RESULTS_FILENAME}
+        #    declare "RND4KQ32T16$z=$($FIO_PRE --blocksize=4k --iodepth=32 --size=50G --rw=$z --numjobs=16 $FIO_POST ; rm -f testio$FIO_RNDNAME*)"
+        #    test_result="RND4KQ32T16$z"
+        #    echo "${!test_result}" | tee -a $PWD/${RESULTS_FILENAME}
 
-            printf "${GCV}----------\n Random by 4KB block queue - 32 queue(s) deep - 16 thread(s) - $z:\n${NCV}" >> $f2
-            parse_fio_results
-            echo $IOPS >> $f2
-            echo "SPEED=$SPEED" >> $f2
+        #    printf "${GCV}----------\n Random by 4KB block queue - 32 queue(s) deep - 16 thread(s) - $z:\n${NCV}" >> $f2
+        #    parse_fio_results
+        #    echo $IOPS >> $f2
+        #    echo "SPEED=$SPEED" >> $f2
 
-            sst
-            printf "${GCV}Testing (${LRV}without SLC cache${NCV}) ${GCV}RND4KQ1T1 $z${NCV}\n" | tee -a $PWD/${RESULTS_FILENAME}
-            declare "RND4KQ1T1$z=$($FIO_PRE --blocksize=4k --iodepth=1 --size=50G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*)"
-            test_result="RND4KQ1T1$z"
-            echo "${!test_result}" | tee -a $PWD/${RESULTS_FILENAME}
+        #    sst
+        #    printf "${GCV}Testing (${LRV}without SLC cache${NCV}) ${GCV}RND4KQ1T1 $z${NCV}\n" | tee -a $PWD/${RESULTS_FILENAME}
+        #    declare "RND4KQ1T1$z=$($FIO_PRE --blocksize=4k --iodepth=1 --size=50G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*)"
+        #    test_result="RND4KQ1T1$z"
+        #    echo "${!test_result}" | tee -a $PWD/${RESULTS_FILENAME}
 
-            printf "${GCV}----------\n  Random by 4KB block queue - 1 queue(s) deep - 1 thread(s) - $z:\n${NCV}" >> $f2
-            parse_fio_results
-            echo $IOPS >> $f2
-            echo "SPEED=$SPEED" >> $f2
+        #    printf "${GCV}----------\n  Random by 4KB block queue - 1 queue(s) deep - 1 thread(s) - $z:\n${NCV}" >> $f2
+        #    parse_fio_results
+        #    echo $IOPS >> $f2
+        #    echo "SPEED=$SPEED" >> $f2
 
-            rm -f testio*
-        done
+        #    rm -f testio*
+        #done
     fi
 
     sst
