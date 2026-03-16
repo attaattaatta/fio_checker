@@ -13,7 +13,7 @@ YCV="\033[01;33m"
 NCV="\033[0m"
 
 # Show script version
-self_current_version="1.0.4"
+self_current_version="1.0.5"
 printf "\n${YCV}Hello${NCV}, my version is ${YCV}$self_current_version\n\n${NCV}"
 
 # Check if the script is run as root
@@ -23,7 +23,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 # one instance run lock
-LOCKFILE=/tmp/fiochk.lock
+LOCKFILE=/run/lock/fiochk.lock
 exec 9>$LOCKFILE
 
 if ! flock -n 9; then
