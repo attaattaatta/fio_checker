@@ -7,18 +7,18 @@ export PATH=$PATH:/usr/sbin:/usr/local/sbin
 clear
 
 # Define color variables
-GCV="\033[0;92m"
-LRV="\033[1;91m"
-YCV="\033[01;33m"
-NCV="\033[0m"
+GC="\033[0;92m"
+LR="\033[1;91m"
+YC="\033[01;33m"
+NC="\033[0m"
 
 # Show script version
-self_current_version="1.0.5"
-printf "\n${YCV}Hello${NCV}, my version is ${YCV}$self_current_version\n\n${NCV}"
+self_current_version="1.0.6"
+printf "\n${YC}Hello${NC}, my version is ${YC}$self_current_version\n\n${NC}"
 
 # Check if the script is run as root
 if [[ $EUID -ne 0 ]]; then
-    printf "\n${LRV}ERROR - This script must be run as root.${NCV}"
+    printf "\n${LR}ERROR - This script must be run as root.${NC}"
     exit 1
 fi
 
@@ -30,34 +30,44 @@ if ! flock -n 9; then
     echo
     if command -v lsof >/dev/null 2>&1; then
         PID=$(lsof -t "$LOCKFILE" 2>/dev/null | grep -v "^$$\$" | head -n1)
-        printf "%s is ${LRV}already locked${NCV} by PID %s\n\n" "$LOCKFILE" "$PID"
+        printf "%s is ${LR}already locked${NC} by PID %s\n\n" "$LOCKFILE" "$PID"
     elif command -v fuser >/dev/null 2>&1; then
         PID=$(fuser "$LOCKFILE" 2>/dev/null | tr ' ' '\n' | grep -v "^$$\$" | head -n1)
-        printf "%s is ${LRV}already locked${NCV} by PID %s\n\n" "$LOCKFILE" "$PID"
+        printf "%s is ${LR}already locked${NC} by PID %s\n\n" "$LOCKFILE" "$PID"
     else
-        printf "%s ${LRV}already exists${NCV}\n\nInstall 'lsof -t' or 'fuser' to see the PID.\n" "$LOCKFILE"
+        printf "%s ${LR}already exists${NC}\n\nInstall 'lsof -t' or 'fuser' to see the PID.\n" "$LOCKFILE"
     fi
     exit 1
 fi
 
 trap 'exec 9>&-; rm -f "$LOCKFILE"' EXIT
 
-
-# Installing test software
-printf "${GCV}Installing fio and smartmontools\n${NCV}"
-{
-yum -y install fio smartmontools || apt -y update; apt -y install fio smartmontools 
-} > /dev/null 2>&1
-
 # Check if required tools are installed
 WE_NEED=('fio' 'smartctl')
 
+install_tools() {
+	command -v apt >/dev/null 2>&1 && { apt -y update && apt -y install fio smartmontools; return; }
+	command -v yum >/dev/null 2>&1 && { yum -y install fio smartmontools; return; }
+	command -v dnf >/dev/null 2>&1 && { dnf -y install fio smartmontools; return; }
+	return 1
+}
+
 for needitem in "${WE_NEED[@]}"; do
-    if ! command -v $needitem &> /dev/null; then
-        printf "\n${LRV}ERROR - $needitem could not be found. Please install it first or export correct \$PATH.${NCV}\n"
-        printf "\n${LRV}yum -y install fio smartmontools || apt -y update; apt -y install fio smartmontools ${NCV}\n"
-        exit 1
-    fi
+	command -v "$needitem" >/dev/null 2>&1 && continue
+
+	printf "\n${LR}WARN - $needitem not found. Trying to install...${NC}\n"
+
+	install_tools || {
+		printf "\n${LR}ERROR - No supported package manager found. Install $needitem manually.${NC}\n"
+		exit 1
+	}
+
+	command -v "$needitem" >/dev/null 2>&1 || {
+		printf "\n${LR}ERROR - Failed to install $needitem. Please install it manually.${NC}\n"
+		exit 1
+	}
+
+	printf "${LG}OK - $needitem installed successfully.${NC}\n"
 done
 
 # Get the current device
@@ -66,7 +76,7 @@ PWD_DEVICE=$(df -P . | sed -n '$s@[[:blank:]].*@@p')
 # Check if the device is a RAID
 if [[ $PWD_DEVICE == *"md"* ]]; then
     if mdadm -D $PWD_DEVICE | grep -qi "status"; then
-        printf "${LRV} RAID resync or rebuild is in progress. Aborting.${NCV}\n"
+        printf "${LR} RAID resync or rebuild is in progress. Aborting.${NC}\n"
         sleep 3s
         exit 1
     fi
@@ -84,50 +94,65 @@ DEVICE_FIRMWARE=${DEVICE_FIRMWARE:-"Unknown"}
 SUMMARY_DEVICE=$(echo $PWD_DEVICE | awk '{print $1}')
 
 # Check free space in gigabytes
-printf "${GCV}Checking free space${NCV}\n\n"
+printf "${GC}Checking free space${NC}\n\n"
 current_free=$(df -PhBG --sync . | tail -1 | awk '{print $4}' | grep -o "[[:digit:]|.]*")
 
-printf "${GCV}Enter size in GB for run tests.\nThe more the better, to check SLC cache enter minimum 50GB, but it should be free space\nAfter test will finish all temporary files will be removed.${NCV}\n"
-printf "${GCV}\nCurrent free space on the drive I run:${NCV} ${current_free}GB\n"
+printf "${GC}Enter size in GB for run tests.\nThe more the better, to check SLC cache enter minimum 50GB, but it should be free space\nAfter test will finish all temporary files will be removed.${NC}\n"
+printf "${GC}\nCurrent free space on the drive I run:${NC} ${current_free}GB\n"
 
-# Function to get size to check
-sizetocheck() {
-    read -p "Enter one file size in GB should I use in tests: " sizetocheck
+# Function to get size to check in sequential tests
+sizetocheck_seq() {
+    read -p "Enter one file size in GB should I use in SEQ tests (default 1): " sizetocheck_seq
+    sizetocheck_seq=${sizetocheck_seq:-1}
 }
 
-sizetocheck
+# Function to get size to check in random tests
+sizetocheck_rand() {
+    read -p "Enter one file size in MB should I use in RANDOM tests (default 100): " sizetocheck_rand
+    sizetocheck_rand=${sizetocheck_rand:-100}
+}
+
+sizetocheck_seq
 
 # Validate input
-while ! [[ $sizetocheck =~ ^[0-9]+$ ]]; do
-    printf "\n${LRV}ERROR - enter only digits${NCV}\n"
+while ! [[ $sizetocheck_seq =~ ^[0-9]+$ ]]; do
+    printf "\n${LR}ERROR - enter only digits${NC}\n"
     sleep 1s
-    sizetocheck
+    sizetocheck_seq
 done
 
-needfreegb=$((${sizetocheck}*16))
+sizetocheck_rand
+
+while ! [[ $sizetocheck_rand =~ ^[0-9]+$ ]]; do
+    printf "\n${LR}ERROR - enter only digits${NC}\n"
+    sleep 1s
+    sizetocheck_seq
+done
+
+needfreegb=$((${sizetocheck_seq}*16))
 
 # Check if there is enough free space
 while [[ "$current_free" -le "$needfreegb" ]]; do
-    printf "${LRV}\nERROR - Free space needed is ${needfreegb}GB ( ${sizetocheck} * numjobs is 16 ) \n${NCV}"
+    printf "${LR}\nERROR - Free space needed is ${needfreegb}GB ( ${sizetocheck_seq} * numjobs is 16 ) \n${NC}"
     sleep 2s
-    sizetocheck
+    sizetocheck_seq
 done
 
 # Check if enough space for SLC cache testing
 if [[ "$current_free" -gt 51 ]]; then
     WITHOUT_SLC_CHECK=1
 else
-    printf "\n${YCV}Not enough free space for testing over SLC cache\nSkipping no SLC tests\n\n${NCV}"
+    printf "\n${YC}Not enough free space for testing over SLC cache\nSkipping no SLC tests\n\n${NC}"
     WITHOUT_SLC_CHECK=0
 fi
 
 # Function to sync, sleep, and trim
 sst() {
-    printf "${GCV}Syncing${NCV}\n"
+    printf "${GC}Syncing${NC}\n"
     sync
-    printf "${GCV}Sleeping${NCV}\n"
+    printf "${GC}Sleeping${NC}\n"
     sleep 5s
-    printf "${GCV}Trimming${NCV}\n"
+    printf "${GC}Trimming${NC}\n"
     fstrim $PWD 2> /dev/null || true
     echo
 }
@@ -158,28 +183,28 @@ f2=results_noslc$FIO_RNDNAME.txt
 
 # Check if the device is NVME
 if [[ $PWD_DEVICE == *"nvme"* ]]; then
-    printf "${GCV}Running FIO (NVME device - ${DEVICE_MODEL} / firmware - ${DEVICE_FIRMWARE})${NCV}\n"
+    printf "${GC}Running FIO (NVME device - ${DEVICE_MODEL} / firmware - ${DEVICE_FIRMWARE})${NC}\n"
 
     # SLC Cache NVME SEQ
     for z in ${OPSTYPE[@]:0:2}; do
         sst
-        printf "${GCV}Testing (${LRV}with SLC cache${NCV}) ${GCV}SEQ1MQ8T1 $z${NCV}\n" | tee -a $PWD/${RESULTS_FILENAME}
-        declare "SEQ1MQ8T1$z=$($FIO_PRE --blocksize=1m --iodepth=8 --size=${sizetocheck}G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync)"
+        printf "${GC}Testing (${LR}with SLC cache${NC}) ${GC}SEQ1MQ8T1 $z${NC}\n" | tee -a $PWD/${RESULTS_FILENAME}
+        declare "SEQ1MQ8T1$z=$($FIO_PRE --blocksize=1m --iodepth=8 --size=${sizetocheck_seq}G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync)"
         test_result="SEQ1MQ8T1$z"
         echo "${!test_result}" | tee -a $PWD/${RESULTS_FILENAME}
 
-        printf "${GCV}----------\n Sequential by 1MB block queue - 8 queue(s) deep - 1 thread(s) - $z:\n${NCV}" >> $f1
+        printf "${GC}----------\n Sequential by 1MB block queue - 8 queue(s) deep - 1 thread(s) - $z:\n${NC}" >> $f1
         parse_fio_results
         echo $IOPS >> $f1
         echo "SPEED=$SPEED" >> $f1
 
         sst
-        printf "${GCV}Testing (${LRV}with SLC cache${NCV}) ${GCV}SEQ128KQ32T1 $z${NCV}\n" | tee -a $PWD/${RESULTS_FILENAME}
-        declare "SEQ128KQ32T1$z=$($FIO_PRE --blocksize=128k --iodepth=32 --size=${sizetocheck}G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync)"
+        printf "${GC}Testing (${LR}with SLC cache${NC}) ${GC}SEQ128KQ32T1 $z${NC}\n" | tee -a $PWD/${RESULTS_FILENAME}
+        declare "SEQ128KQ32T1$z=$($FIO_PRE --blocksize=128k --iodepth=32 --size=${sizetocheck_seq}G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync)"
         test_result="SEQ128KQ32T1$z"
         echo "${!test_result}" | tee -a $PWD/${RESULTS_FILENAME}
 
-        printf "${GCV}----------\n Sequential by 128KB block queue - 32 queue(s) deep - 1 thread(s) - $z:\n${NCV}" >> $f1
+        printf "${GC}----------\n Sequential by 128KB block queue - 32 queue(s) deep - 1 thread(s) - $z:\n${NC}" >> $f1
         parse_fio_results
         echo $IOPS >> $f1
         echo "SPEED=$SPEED" >> $f1
@@ -190,23 +215,23 @@ if [[ $PWD_DEVICE == *"nvme"* ]]; then
     # SLC Cache NVME RND
     for z in ${OPSTYPE[@]:2:3}; do
         sst
-        printf "${GCV}Testing (${LRV}with SLC cache${NCV}) ${GCV}RND4KQ32T16 $z${NCV}\n" | tee -a $PWD/${RESULTS_FILENAME}
-        declare "RND4KQ32T16$z=$($FIO_PRE --blocksize=4k --iodepth=32 --size=${sizetocheck}G --rw=$z --numjobs=16 $FIO_POST ; rm -f testio$FIO_RNDNAME*)"
+        printf "${GC}Testing (${LR}with SLC cache${NC}) ${GC}RND4KQ32T16 $z${NC}\n" | tee -a $PWD/${RESULTS_FILENAME}
+        declare "RND4KQ32T16$z=$($FIO_PRE --blocksize=4k --iodepth=32 --size=${sizetocheck_rand}M --rw=$z --numjobs=16 $FIO_POST ; rm -f testio$FIO_RNDNAME*)"
         test_result="RND4KQ32T16$z"
         echo "${!test_result}" | tee -a $PWD/${RESULTS_FILENAME}
 
-        printf "${GCV}----------\n Random by 4KB block queue - 32 queue(s) deep - 16 thread(s) - $z:\n${NCV}" >> $f1
+        printf "${GC}----------\n Random by 4KB block queue - 32 queue(s) deep - 16 thread(s) - $z:\n${NC}" >> $f1
         parse_fio_results
         echo $IOPS >> $f1
         echo "SPEED=$SPEED" >> $f1
 
         sst
-        printf "${GCV}Testing (${LRV}with SLC cache${NCV}) ${GCV}RND4KQ1T1 $z${NCV}\n" | tee -a $PWD/${RESULTS_FILENAME}
-        declare "RND4KQ1T1$z=$($FIO_PRE --blocksize=4k --iodepth=1 --size=${sizetocheck}G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*)"
+        printf "${GC}Testing (${LR}with SLC cache${NC}) ${GC}RND4KQ1T1 $z${NC}\n" | tee -a $PWD/${RESULTS_FILENAME}
+        declare "RND4KQ1T1$z=$($FIO_PRE --blocksize=4k --iodepth=1 --size=${sizetocheck_rand}M --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*)"
         test_result="RND4KQ1T1$z"
         echo "${!test_result}" | tee -a $PWD/${RESULTS_FILENAME}
 
-        printf "${GCV}----------\n  Random by 4KB block queue - 1 queue(s) deep - 1 thread(s) - $z:\n${NCV}" >> $f1
+        printf "${GC}----------\n  Random by 4KB block queue - 1 queue(s) deep - 1 thread(s) - $z:\n${NC}" >> $f1
         parse_fio_results
         echo $IOPS >> $f1
         echo "SPEED=$SPEED" >> $f1
@@ -218,93 +243,65 @@ if [[ $PWD_DEVICE == *"nvme"* ]]; then
         # NOT SLC Cache NVME SEQ
         for z in ${OPSTYPE[@]:0:2}; do
             sst
-            printf "${GCV}Testing (${LRV}without SLC cache${NCV}) ${GCV}SEQ1MQ8T1 $z${NCV}\n" | tee -a $PWD/${RESULTS_FILENAME}
+            printf "${GC}Testing (${LR}without SLC cache${NC}) ${GC}SEQ1MQ8T1 $z${NC}\n" | tee -a $PWD/${RESULTS_FILENAME}
             declare "SEQ1MQ8T1$z=$($FIO_PRE --blocksize=1m --iodepth=8 --size=50G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync)"
             test_result="SEQ1MQ8T1$z"
             echo "${!test_result}" | tee -a $PWD/${RESULTS_FILENAME}
 
-            printf "${GCV}----------\n Sequential by 1MB block queue - 8 queue(s) deep - 1 thread(s) - $z:\n${NCV}" >> $f2
+            printf "${GC}----------\n Sequential by 1MB block queue - 8 queue(s) deep - 1 thread(s) - $z:\n${NC}" >> $f2
             parse_fio_results
             echo $IOPS >> $f2
             echo "SPEED=$SPEED" >> $f2
 
             sst
-            printf "${GCV}Testing (${LRV}without SLC cache${NCV}) ${GCV}SEQ128KQ32T1 $z${NCV}\n" | tee -a $PWD/${RESULTS_FILENAME}
+            printf "${GC}Testing (${LR}without SLC cache${NC}) ${GC}SEQ128KQ32T1 $z${NC}\n" | tee -a $PWD/${RESULTS_FILENAME}
             declare "SEQ128KQ32T1$z=$($FIO_PRE --blocksize=128k --iodepth=32 --size=50G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync)"
             test_result="SEQ128KQ32T1$z"
             echo "${!test_result}" | tee -a $PWD/${RESULTS_FILENAME}
 
-            printf "${GCV}----------\n Sequential by 128KB block queue - 32 queue(s) deep - 1 thread(s) - $z:\n${NCV}" >> $f2
+            printf "${GC}----------\n Sequential by 128KB block queue - 32 queue(s) deep - 1 thread(s) - $z:\n${NC}" >> $f2
             parse_fio_results
             echo $IOPS >> $f2
             echo "SPEED=$SPEED" >> $f2
 
             rm -f testio*
         done
-
-        # NOT SLC Cache NVME RND
-	# disabled, running too slow
-        #for z in ${OPSTYPE[@]:2:3}; do
-        #    sst
-        #    printf "${GCV}Testing (${LRV}without SLC cache${NCV}) ${GCV}RND4KQ32T16 $z${NCV}\n" | tee -a $PWD/${RESULTS_FILENAME}
-        #    declare "RND4KQ32T16$z=$($FIO_PRE --blocksize=4k --iodepth=32 --size=50G --rw=$z --numjobs=16 $FIO_POST ; rm -f testio$FIO_RNDNAME*)"
-        #    test_result="RND4KQ32T16$z"
-        #    echo "${!test_result}" | tee -a $PWD/${RESULTS_FILENAME}
-
-        #    printf "${GCV}----------\n Random by 4KB block queue - 32 queue(s) deep - 16 thread(s) - $z:\n${NCV}" >> $f2
-        #    parse_fio_results
-        #    echo $IOPS >> $f2
-        #    echo "SPEED=$SPEED" >> $f2
-
-        #    sst
-        #    printf "${GCV}Testing (${LRV}without SLC cache${NCV}) ${GCV}RND4KQ1T1 $z${NCV}\n" | tee -a $PWD/${RESULTS_FILENAME}
-        #    declare "RND4KQ1T1$z=$($FIO_PRE --blocksize=4k --iodepth=1 --size=50G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*)"
-        #    test_result="RND4KQ1T1$z"
-        #    echo "${!test_result}" | tee -a $PWD/${RESULTS_FILENAME}
-
-        #    printf "${GCV}----------\n  Random by 4KB block queue - 1 queue(s) deep - 1 thread(s) - $z:\n${NCV}" >> $f2
-        #    parse_fio_results
-        #    echo $IOPS >> $f2
-        #    echo "SPEED=$SPEED" >> $f2
-
-        #    rm -f testio*
-        #done
     fi
 
     sst
 
-    printf "${LRV}Summary for $SUMMARY_DEVICE (NO SLC CACHE NVME - $DEVICE_MODEL) at $PWD${NCV}\n" | tee -a $PWD/${RESULTS_FILENAME}
+    printf "${LR}Summary${NC} for $SUMMARY_DEVICE (NO SLC CACHE NVME - $DEVICE_MODEL) at $PWD\n" | tee -a $PWD/${RESULTS_FILENAME}
     cat $f2 | tee -a $PWD/${RESULTS_FILENAME}
     echo
-    printf "${LRV}Summary for $SUMMARY_DEVICE (SLC CACHE NVME - $DEVICE_MODEL) at $PWD${NCV}\n" | tee -a $PWD/${RESULTS_FILENAME}
+    printf "${LR}Summary${NC} for $SUMMARY_DEVICE (SLC CACHE NVME - $DEVICE_MODEL) at $PWD\n" | tee -a $PWD/${RESULTS_FILENAME}
     cat $f1 | tee -a $PWD/${RESULTS_FILENAME}
     rm -f $f $f1 $f2
     echo
 
 else
-    printf "${GCV}Running FIO (${LRV}NOT${GCV} NVME device - ${DEVICE_MODEL} / firmware - ${DEVICE_FIRMWARE}) ${NCV}\n"
+    printf "${GC}Running FIO (${LR}NOT${GC} NVME device - ${DEVICE_MODEL} / firmware - ${DEVICE_FIRMWARE}) ${NC}\n"
 
     # NOT_NVME SEQ
     for z in ${OPSTYPE[@]:0:2}; do
         sst
-        printf "${GCV}Testing SEQ1MQ8T1 $z${NCV}\n" | tee -a $PWD/${RESULTS_FILENAME}
-        declare "SEQ1MQ8T1$z=$($FIO_PRE --blocksize=1m --iodepth=8 --size=${sizetocheck}G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync)"
+        printf "${GC}Testing SEQ1MQ8T1 $z${NC}\n" | tee -a $PWD/${RESULTS_FILENAME}
+        declare "SEQ1MQ8T1$z=$($FIO_PRE --blocksize=1m --iodepth=8 --size=${sizetocheck_seq}G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync)"
         test_result="SEQ1MQ8T1$z"
         echo "${!test_result}" | tee -a $PWD/${RESULTS_FILENAME}
 
-        printf "${GCV}----------\n Sequential by 1MB block queue - 8 queue(s) deep - 1 thread(s) - $z:\n${NCV}" >> $f
+        printf "${GC}----------\n Sequential by 1MB block queue - 8 queue(s) deep - 1 thread(s) - $z:\n${NC}" >> $f
         parse_fio_results
         echo $IOPS >> $f
         echo "SPEED=$SPEED" >> $f
 
         sst
-        printf "${GCV}Testing SEQ128KQ32T1 $z${NCV}\n" | tee -a $PWD/${RESULTS_FILENAME}
-        declare "SEQ128KQ32T1$z=$($FIO_PRE --blocksize=128k --iodepth=32 --size=${sizetocheck}G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync)"
+        printf "${GC}Testing SEQ128KQ32T1 $z${NC}\n" | tee -a $PWD/${RESULTS_FILENAME}
+        declare "SEQ128KQ32T1$z=$($FIO_PRE --blocksize=128k --iodepth=32 --size=${sizetocheck_seq}G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync)"
         test_result="SEQ128KQ32T1$z"
         echo "${!test_result}" | tee -a $PWD/${RESULTS_FILENAME}
         echo
 
-        printf "${GCV}----------\n Sequential by 128KB block queue - 32 queue(s) deep - 1 thread(s) - $z:\n${NCV}" >> $f
+        printf "${GC}----------\n Sequential by 128KB block queue - 32 queue(s) deep - 1 thread(s) - $z:\n${NC}" >> $f
         parse_fio_results
         echo $IOPS >> $f
         echo "SPEED=$SPEED" >> $f
@@ -315,23 +312,23 @@ else
     # NOT_NVME RND
     for z in ${OPSTYPE[@]:2:3}; do
         sst
-        printf "${GCV}Testing RND4KQ32T1 $z${NCV}\n" | tee -a $PWD/${RESULTS_FILENAME}
-        declare "RND4KQ32T1$z=$($FIO_PRE --blocksize=4k --iodepth=32 --size=${sizetocheck}G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*)"
+        printf "${GC}Testing RND4KQ32T1 $z${NC}\n" | tee -a $PWD/${RESULTS_FILENAME}
+        declare "RND4KQ32T1$z=$($FIO_PRE --blocksize=4k --iodepth=32 --size=${sizetocheck_rand}M --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*)"
         test_result="RND4KQ32T1$z"
         echo "${!test_result}" | tee -a $PWD/${RESULTS_FILENAME}
 
-        printf "${GCV}----------\n Random by 4KB block queue - 32 queue(s) deep - 1 thread(s) - $z:\n${NCV}" >> $f
+        printf "${GC}----------\n Random by 4KB block queue - 32 queue(s) deep - 1 thread(s) - $z:\n${NC}" >> $f
         parse_fio_results
         echo $IOPS >> $f
         echo "SPEED=$SPEED" >> $f
 
         sst
-        printf "${GCV}Testing RND4KQ1T1 $z${NCV}\n" | tee -a $PWD/${RESULTS_FILENAME}
-        declare "RND4KQ1T1$z=$($FIO_PRE --blocksize=4k --iodepth=1 --size=${sizetocheck}G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*)"
+        printf "${GC}Testing RND4KQ1T1 $z${NC}\n" | tee -a $PWD/${RESULTS_FILENAME}
+        declare "RND4KQ1T1$z=$($FIO_PRE --blocksize=4k --iodepth=1 --size=${sizetocheck_rand}M --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*)"
         test_result="RND4KQ1T1$z"
         echo "${!test_result}" | tee -a $PWD/${RESULTS_FILENAME}
 
-        printf "${GCV}----------\n Random by 4KB block queue - 1 queue(s) deep - 1 thread(s) - $z:\n${NCV}" >> $f
+        printf "${GC}----------\n Random by 4KB block queue - 1 queue(s) deep - 1 thread(s) - $z:\n${NC}" >> $f
         parse_fio_results
         echo $IOPS >> $f
         echo "SPEED=$SPEED" >> $f
@@ -340,13 +337,13 @@ else
     done
 
     sst
-    printf "${LRV}Summary for $SUMMARY_DEVICE (NOT NVME - $DEVICE_MODEL) at $PWD${NCV}\n" | tee -a $PWD/${RESULTS_FILENAME}
+    printf "${LR}Summary${NC} for $SUMMARY_DEVICE (NOT NVME - $DEVICE_MODEL) at $PWD\n" | tee -a $PWD/${RESULTS_FILENAME}
     cat $f | tee -a $PWD/${RESULTS_FILENAME}
     rm -f $f $f1 $f2
     echo
 fi
 
-printf "${GCV}\nFull results in file - $PWD/${RESULTS_FILENAME}${NCV}\n"
+printf "\n${GC}Full results${NC} in file - $PWD/${RESULTS_FILENAME}\n"
 
 # Unset variables
-unset current_free needfreegb sizetocheck WITHOUT_SLC_CHECK fio_exist GCV LRV NCV FIO_RNDNAME FIO_PRE FIO_POST OPSTYPE f f1 f2 PWD_DEVICE DEVICE_MODEL DEVICE_FIRMWARE IOPS SPEED SUMMARY_DEVICE test_result RESULTS_FILENAME
+unset current_free needfreegb sizetocheck_seq WITHOUT_SLC_CHECK fio_exist GC LR NC FIO_RNDNAME FIO_PRE FIO_POST OPSTYPE f f1 f2 PWD_DEVICE DEVICE_MODEL DEVICE_FIRMWARE IOPS SPEED SUMMARY_DEVICE test_result RESULTS_FILENAME
