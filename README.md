@@ -7,11 +7,11 @@ Short Bash helper that runs guided fio benchmarks on the current filesystem.
 - fio and smartctl (script will try to install via apt/yum/dnf)
 
 ## Run
-`
+```
 bash <(wget --no-check-certificate -q -o /dev/null -O- https://bit.ly/3tX5Xjj)
 or
 bash <(curl -kLs https://bit.ly/3tX5Xjj)
-`
+```
 
 The script detects the current device, checks RAID rebuild state, runs sequential and random workloads, and writes a timestamped log file in the working directory.
 
