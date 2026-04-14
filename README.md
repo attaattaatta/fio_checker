@@ -9,8 +9,7 @@ Short Bash helper that runs guided fio benchmarks on the current filesystem.
 ## Run
 `
 bash <(wget --no-check-certificate -q -o /dev/null -O- https://bit.ly/3tX5Xjj)
-`
-`
+or
 bash <(curl -kLs https://bit.ly/3tX5Xjj)
 `
 
