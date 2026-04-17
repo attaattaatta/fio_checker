@@ -13,7 +13,7 @@ YC="\033[01;33m"
 NC="\033[0m"
 
 # Show script version
-self_current_version="1.0.6"
+self_current_version="1.0.7"
 printf "\n${YC}Hello${NC}, my version is ${YC}$self_current_version\n\n${NC}"
 
 # Check if the script is run as root
@@ -186,7 +186,7 @@ if [[ $PWD_DEVICE == *"nvme"* ]]; then
     printf "${GC}Running FIO (NVME device - ${DEVICE_MODEL} / firmware - ${DEVICE_FIRMWARE})${NC}\n"
 
     # SLC Cache NVME SEQ
-    for z in ${OPSTYPE[@]:0:2}; do
+    for z in "${OPSTYPE[@]:0:2}"; do
         sst
         printf "${GC}Testing (${LR}with SLC cache${NC}) ${GC}SEQ1MQ8T1 $z${NC}\n" | tee -a $PWD/${RESULTS_FILENAME}
         declare "SEQ1MQ8T1$z=$($FIO_PRE --blocksize=1m --iodepth=8 --size=${sizetocheck_seq}G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync)"
@@ -213,7 +213,7 @@ if [[ $PWD_DEVICE == *"nvme"* ]]; then
     done
 
     # SLC Cache NVME RND
-    for z in ${OPSTYPE[@]:2:3}; do
+    for z in "${OPSTYPE[@]:2:3}"; do
         sst
         printf "${GC}Testing (${LR}with SLC cache${NC}) ${GC}RND4KQ32T16 $z${NC}\n" | tee -a $PWD/${RESULTS_FILENAME}
         declare "RND4KQ32T16$z=$($FIO_PRE --blocksize=4k --iodepth=32 --size=${sizetocheck_rand}M --rw=$z --numjobs=16 $FIO_POST ; rm -f testio$FIO_RNDNAME*)"
@@ -241,7 +241,7 @@ if [[ $PWD_DEVICE == *"nvme"* ]]; then
 
     if [[ $WITHOUT_SLC_CHECK == "1" ]]; then
         # NOT SLC Cache NVME SEQ
-        for z in ${OPSTYPE[@]:0:2}; do
+        for z in "${OPSTYPE[@]:0:2}"; do
             sst
             printf "${GC}Testing (${LR}without SLC cache${NC}) ${GC}SEQ1MQ8T1 $z${NC}\n" | tee -a $PWD/${RESULTS_FILENAME}
             declare "SEQ1MQ8T1$z=$($FIO_PRE --blocksize=1m --iodepth=8 --size=50G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync)"
@@ -282,7 +282,7 @@ else
     printf "${GC}Running FIO (${LR}NOT${GC} NVME device - ${DEVICE_MODEL} / firmware - ${DEVICE_FIRMWARE}) ${NC}\n"
 
     # NOT_NVME SEQ
-    for z in ${OPSTYPE[@]:0:2}; do
+    for z in "${OPSTYPE[@]:0:2}"; do
         sst
         printf "${GC}Testing SEQ1MQ8T1 $z${NC}\n" | tee -a $PWD/${RESULTS_FILENAME}
         declare "SEQ1MQ8T1$z=$($FIO_PRE --blocksize=1m --iodepth=8 --size=${sizetocheck_seq}G --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*; sync)"
@@ -310,7 +310,7 @@ else
     done
 
     # NOT_NVME RND
-    for z in ${OPSTYPE[@]:2:3}; do
+    for z in "${OPSTYPE[@]:2:3}"; do
         sst
         printf "${GC}Testing RND4KQ32T1 $z${NC}\n" | tee -a $PWD/${RESULTS_FILENAME}
         declare "RND4KQ32T1$z=$($FIO_PRE --blocksize=4k --iodepth=32 --size=${sizetocheck_rand}M --rw=$z --numjobs=1 $FIO_POST ; rm -f testio$FIO_RNDNAME*)"
